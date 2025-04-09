@@ -1,0 +1,32 @@
+<!-- public/client.html -->
+<script>
+    const ws = new WebSocket('ws://localhost:3000');
+    const pc = new RTCPeerConnection();
+    
+    // Setup WebRTC data channel (for sending traffic)
+    let dataChannel = pc.createDataChannel('snowflake');
+    dataChannel.onopen = () => {
+      console.log('Connected to proxy!');
+      dataChannel.send('Hello through Snowflake!');
+    };
+    
+    // Send offers to the broker
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        ws.send(JSON.stringify({ type: 'ice-candidate', candidate: e.candidate }));
+      }
+    };
+    
+    pc.createOffer().then(async (offer) => {
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'request-proxy', offer: pc.localDescription }));
+    });
+    
+    // Handle answers from the proxy
+    ws.onmessage = async (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'answer') {
+        await pc.setRemoteDescription(data.payload);
+      }
+    };
+    </script>

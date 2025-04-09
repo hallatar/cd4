@@ -1,0 +1,28 @@
+<!-- public/proxy.html -->
+<script>
+const ws = new WebSocket('ws://localhost:3000');
+const pc = new RTCPeerConnection();
+
+// Listen for WebRICE candidates (simplified)
+pc.onicecandidate = (e) => {
+  if (e.candidate) {
+    ws.send(JSON.stringify({ type: 'ice-candidate', candidate: e.candidate }));
+  }
+};
+
+// Handle incoming offers from the broker
+ws.onmessage = async (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'offer') {
+    await pc.setRemoteDescription(data.payload);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    ws.send(JSON.stringify({ type: 'answer', answer: pc.localDescription }));
+  }
+};
+
+// Register as a proxy
+ws.onopen = () => {
+  ws.send(JSON.stringify({ type: 'register-proxy' }));
+};
+</script>
